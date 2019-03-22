@@ -393,6 +393,9 @@ func createPatch(pod *corev1.Pod, inj *config.InjectionConfig, annotations map[s
 
 	// first, make sure any injected containers in our config get the EnvVars and VolumeMounts injected
 	// this mutates inj.Containers with our environment vars
+	if inj.Name == "log-inject" {
+		inj.Environment = append(inj.Environment, corev1.EnvVar{Name: "host_pod_name", Value: pod.Name})
+	}
 	mutatedInjectedContainers := mergeEnvVars(inj.Environment, inj.Containers)
 	mutatedInjectedContainers = mergeVolumeMounts(inj.VolumeMounts, mutatedInjectedContainers)
 
