@@ -388,17 +388,18 @@ func updateAnnotations(target map[string]string, added map[string]string) (patch
 }
 
 // create mutation patch for resoures
-func createPatch(pod *corev1.Pod, inj *config.InjectionConfig, annotations map[string]string) ([]byte, error) {
+func createPatch(pod *corev1.Pod, inj config.InjectionConfig, annotations map[string]string) ([]byte, error) {
 	var patch []patchOperation
 
 	// first, make sure any injected containers in our config get the EnvVars and VolumeMounts injected
 	// this mutates inj.Containers with our environment vars
 	if inj.Name == "log-inject" {
-		serviceName := pod.ClusterName
-		if serviceName != "" {
-			inj.Environment = append(inj.Environment, corev1.EnvVar{Name: "host_service_name", Value: serviceName})
+		v, ok := pod.Labels["cluster"]
+		if ok {
+			inj.Environment = append(inj.Environment, corev1.EnvVar{Name: "host_service_name", Value: v})
 
 		}
+
 	}
 	mutatedInjectedContainers := mergeEnvVars(inj.Environment, inj.Containers)
 	mutatedInjectedContainers = mergeVolumeMounts(inj.VolumeMounts, mutatedInjectedContainers)
@@ -463,7 +464,8 @@ func (whsvr *WebhookServer) mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	annotations := map[string]string{}
 	annotations[config.InjectionStatusAnnotation] = StatusInjected
 	glog.Infof("try to path pod %+v", &pod)
-	patchBytes, err := createPatch(&pod, injectionConfig, annotations)
+
+	patchBytes, err := createPatch(&pod, *injectionConfig, annotations)
 	if err != nil {
 		injectionCounter.With(prometheus.Labels{"status": "error", "reason": "patching_error", "requested": injectionKey}).Inc()
 		return &v1beta1.AdmissionResponse{
